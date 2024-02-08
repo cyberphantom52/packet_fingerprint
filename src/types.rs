@@ -18,30 +18,81 @@ pub enum IpHeader {
   V6(IPV6Header),
 }
 
+
+
 #[derive(Copy, Clone, Debug)]
 #[repr(C, packed)]
 pub struct IPV4Header {
-    pub ver_hlen: u8,   // IP version (4), IP hdr len in dwords (4)
-    pub tos_ecn: u8,    // ToS field (6), ECN flags (2)
-    pub tot_len: u16,   // Total packet length, in bytes
-    pub id: u16,        // IP ID
-    pub flags_off: u16, // Flags (3), fragment offset (13)
-    pub ttl: u8,        // Time to live
-    pub proto: u8,      // Next protocol
-    pub cksum: u16,     // Header checksum
-    pub src: [u8; 4],   // Source IP
-    pub dst: [u8; 4],   // Destination IP
+    /// Represents the version and IHL (Internet Header Length) field in a packet.
+    /// - The version field is 4 bits long and represents the version of the IP protocol.
+    /// - The IHL field is 4 bits long.
+    /// 
+    /// IHL is the number of 32-bit words in the header. The minimum value for this field is 5 (when no options are present),
+    pub version_ihl: u8,
+
+    /// Represents the Type of Service (ToS) field in a packet.
+    /// - The first 6 bits represent the Differentiated Services Code Point (DSCP).
+    /// - The last 2 bits represent the Explicit Congestion Notification (ECN).
+    pub tos_ecn: u8,
+
+    /// Represents the total length of the packet in bytes.
+    pub total_length: u16,
+
+    /// Represents the identification field in a packet.
+    pub id: u16,
+
+    /// Represents the flags and fragment offset fields in a packet.
+    /// - The first 3 bits represent the flags.
+    /// - The last 13 bits represent the fragment offset.
+    pub flags_foffset: u16,
+    pub time_to_live: u8,
+    
+    /// https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
+    pub protocol: u8,
+    pub checksum: u16,
+    pub source_ip: [u8; 4],
+    pub destination_ip: [u8; 4],
 }
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C, packed)]
 pub struct IPV6Header {
-    pub ver_tos: u32,  // Version (4), ToS (6), ECN (2), flow (20)
-    pub pay_len: u16,  // Total payload length, in bytes
-    pub proto: u8,     // Next protocol
-    pub ttl: u8,       // Time to live
-    pub src: [u8; 16], // Source IP
-    pub dst: [u8; 16], // Destination IP
+    /// Represents the version, traffic class, and flow label fields in a packet.
+    /// - The version field is 4 bits long and represents the version of the IP protocol.
+    /// - The traffic class field is 8 bits long and represents the type of service.
+    ///   - The first 6 bits represent the Differentiated Services Code Point (DSCP).
+    ///   - The last 2 bits represent the Explicit Congestion Notification (ECN).
+    /// - The flow label field is 20 bits long and represents the flow of the packet.
+    pub ver_tos_ecn_flow: u32,
+    
+    /// Represents the payload length (means the length of the data in the packet, excluding the header) in bytes.
+    pub payload_length: u16,
+    pub next_header: u8,
+    pub time_to_live: u8,
+    pub source_ip: [u8; 16],
+    pub destination_ip: [u8; 16],
+}
+
+#[derive(Copy, Clone, Debug)]
+#[repr(C, packed)]
+pub struct EthernetHeader {
+  destination: [u8; 6],
+  source: [u8; 6],
+  ether_type: u16,
+}
+
+impl std::fmt::Display for EthernetHeader {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+      let destination = self.destination;
+      let source = self.source;
+      let ether_type = self.ether_type;
+      
+      write!(f, "Destination: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}\nSource: {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}\nEtherType: {:04x}",
+          destination[0], destination[1], destination[2], destination[3], destination[4], destination[5],
+          source[0], source[1], source[2], source[3], source[4], source[5],
+          ether_type
+      )
+  }
 }
 
 #[derive(Copy, Clone, Debug)]

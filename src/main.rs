@@ -17,10 +17,14 @@ fn main() {
 
         let raw = RawPacket::new(data, Some(LinkType::from(link_type.0 as u16)));
 
+        if raw.get_offset() == 14 {
+            let eth_header = raw.get_ethernet_header().unwrap();
+            println!("{:#?}", eth_header);
+        }
+        
         let ip_header = raw.get_ip_header().unwrap();
-        // let tcp_header = raw.get_tcp_header().unwrap();
-
         println!("{:#?}", ip_header);
-        // println!("{:#?}", tcp_header);
+        let tcp_header = raw.get_tcp_header().unwrap();
+        println!("{:#?}", tcp_header);
     }
 }

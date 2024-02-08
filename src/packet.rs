@@ -8,8 +8,19 @@ pub struct RawPacket<'a> {
 impl<'a> RawPacket<'a> {
     pub fn new(data: &'a [u8], link_type: Option<LinkType>) -> RawPacket<'a> {
         let mut result = RawPacket { data, offset: None };
-        result.calculate_offset(link_type).unwrap();
+        result.calculate_offset(link_type);
         result
+    }
+
+    pub fn get_ethernet_header(&self) -> Result<EthernetHeader, String> {
+        if self.get_offset() < 14 {
+            return Err("Packet too short".to_string());
+        }
+
+        let raw = &self.data[..14];
+        let eth = unsafe { *(raw.as_ptr() as *const EthernetHeader) };
+
+        Ok(eth)
     }
 
     pub fn get_ip_header(&self) -> Result<IpHeader, String> {
@@ -61,10 +72,11 @@ impl<'a> RawPacket<'a> {
     }
 
     pub fn get_offset(&self) -> usize {
-        self.offset.unwrap_or(0)
+        // default to ethernet header length
+        self.offset.unwrap_or(14)
     }
 
-    pub fn calculate_offset(&mut self, link_type: Option<LinkType>) -> Result<(), String> {
+    fn calculate_offset(&mut self, link_type: Option<LinkType>) {
         self.offset = match link_type {
             Some(LinkType::Raw) => Some(0),
             Some(LinkType::Null) | Some(LinkType::Ppp) => Some(4),
@@ -78,45 +90,40 @@ impl<'a> RawPacket<'a> {
             Some(LinkType::Ieee802_11) => Some(32),
             _ => None,
         };
-        
+
         if self.offset.is_some() {
-            return Ok(());
+            return;
         }
 
-        loop {
-            let data = &self.data[self.get_offset()..];
+        for offset in (0..IPV6_HDR_LEN).step_by(2) {
+            let data = &self.data[offset..];
 
             if data.len() < MIN_TCP4 {
-                return Err("Packet too short".to_string());
+                return;
             }
 
-            if self.get_offset() >= IPV6_HDR_LEN {
-                return Err("No IP packet found".to_string());
-            }
-
-            let ip_version = self.ip_version();
-
-            let is_valid = match ip_version {
-                Ok(IpAddr::V4) => {
-                    data[9] == 6
-                },
-                Ok(IpAddr::V6) => {
+            let ip_version = match data[0] >> 4 {
+                4 => IpAddr::V4,
+                6 => {
                     if data.len() >= MIN_TCP6 {
-                        data[6] == 6
+                        IpAddr::V6
                     } else {
-                        false
+                        continue;
                     }
                 }
-                Err(_) => {
-                    false
-                },
+                _ => continue,
             };
 
-            if is_valid {
-                return Ok(());
-            }
+            let protocol = match ip_version {
+                IpAddr::V4 => data[9],
+                IpAddr::V6 => data[6],
+            };
 
-            self.offset = Some(self.get_offset() + 2);
+            // TCP or UDP
+            if protocol == 6 {
+                self.offset = Some(offset);
+                return;
+            }
         }
     }
 }
